@@ -12,10 +12,12 @@ namespace GetImagesInfo
         {
             try
             {
-                if (args.Length > 0)
-                    ExportInfo(args[0]);
-                else
-                    RegisterMenu();
+                switch (args.Length)
+                {
+                    case 0: RegisterMenu(); break;
+                    case 1: ExportPicturesInfo(args[0]); break;
+                    case 2: ExportFilesInfo(args[0], args[1]); break;
+                }
             }
             catch (Exception e)
             {
@@ -26,7 +28,20 @@ namespace GetImagesInfo
             }
         }
 
-        private static void ExportInfo(string path)
+        private static void ExportPicturesInfo(string path)
+        {
+            ExportInfo(path, false);
+        }
+
+        private static void ExportFilesInfo(string path, string arg)
+        {
+            if (arg == "-f")
+                ExportInfo(path, true);
+            else
+                throw new ArgumentException($"argument {arg} is not valid");
+        }
+
+        private static void ExportInfo(string path, bool anyFiles)
         {
             if (!Directory.Exists(path))
             {
@@ -36,15 +51,24 @@ namespace GetImagesInfo
             }
             bool pause = false;
             var sb = new StringBuilder();
-            foreach (var file in Directory.GetFiles(path, "*.png", SearchOption.TopDirectoryOnly)
+            var files = anyFiles ? Directory.GetFiles(path, "*.*", SearchOption.TopDirectoryOnly)
+                : Directory.GetFiles(path, "*.png", SearchOption.TopDirectoryOnly)
                 .Union(Directory.GetFiles(path, "*.jpg", SearchOption.TopDirectoryOnly))
                 .Union(Directory.GetFiles(path, "*.jpeg", SearchOption.TopDirectoryOnly))
-                .Union(Directory.GetFiles(path, "*.bmp", SearchOption.TopDirectoryOnly)))
+                .Union(Directory.GetFiles(path, "*.bmp", SearchOption.TopDirectoryOnly));
+            foreach (var file in files)
             {
                 try
                 {
-                    var img = System.Drawing.Image.FromFile(file);
-                    sb.AppendLine($"{Path.GetFileName(file)},{img.Width},{img.Height}");
+                    if (anyFiles)
+                    {
+                        sb.AppendLine($"{Path.GetFileName(file)}");
+                    }
+                    else
+                    {
+                        var img = System.Drawing.Image.FromFile(file);
+                        sb.AppendLine($"{Path.GetFileName(file)},{img.Width},{img.Height}");
+                    }
                 }
                 catch (Exception e)
                 {
@@ -52,7 +76,7 @@ namespace GetImagesInfo
                     pause = true;
                 }
             }
-            File.WriteAllText(Path.Combine(path, "images_info.csv"), sb.ToString());
+            File.WriteAllText(Path.Combine(path, "info.csv"), sb.ToString());
             if (pause)
                 Console.ReadLine();
         }
@@ -69,6 +93,13 @@ namespace GetImagesInfo
                         getImagesKey.SetValue("Icon", System.Reflection.Assembly.GetEntryAssembly().Location);
                         using (var commandKey = getImagesKey.CreateSubKey("command"))
                             commandKey.SetValue(null, $"\"{System.Reflection.Assembly.GetEntryAssembly().Location}\" \"%V\"");
+                    }
+                    using (var getImagesKey = currentUserKey.CreateSubKey("GetFilesInfo"))
+                    {
+                        getImagesKey.SetValue(null, "Collect files data");
+                        getImagesKey.SetValue("Icon", System.Reflection.Assembly.GetEntryAssembly().Location);
+                        using (var commandKey = getImagesKey.CreateSubKey("command"))
+                            commandKey.SetValue(null, $"\"{System.Reflection.Assembly.GetEntryAssembly().Location}\" \"%V\" -f");
                     }
                 }
                 Console.WriteLine("Context menu item successfully registered");
